@@ -1,87 +1,71 @@
-ALGORİTMA ATM_PARA_CEKME
+digraph ATM_ParaCekme {
+  rankdir=LR;
+  graph [fontsize=12 labelloc="t" label="ATM - Para Çekme Sistemi (Akış Diyagramı)"];
+  node [shape=box style="rounded,filled" fillcolor="#FFFFFF" fontname="Helvetica"];
 
-DEĞİŞKENLER:
-    kart, girilenPIN, hesap, miktar : TAMSAYI
-    bakiye, gunlukLimit, gunlukCekilen, atmNakit : TAMSAYI
-    islemDurumu : METİN
-    dogruPIN : TAMSAYI
+  /* Kümeler (clusters) */
+  subgraph cluster_atm {
+    label="ATM Cihazı";
+    style=rounded;
+    color="#cfe2f3";
+    card_insertion [label="Kart Tak / Temassız OKUT"];
+    read_card [label="Kart Bilgilerini Oku\n(Çip/Bant)"];
+    pin_entry [label="PIN Girişi\n(PIN şifrelenir)"];
+    request_build [label="İstek Hazırla\n(İşlem türü,tutar)"];
+    dispense [label="Nakit Hazırla ve Ver"];
+    receipt [label="Makbuz Bas / Bildirim"];
+    sensors [label="Sensör Kontrolleri\n(sıkışma,adet)"];
+    eject_card [label="Kartı Ver / İşlemi Bitir"];
+    atm_error [label="Hata / İptal", shape=ellipse, fillcolor="#fde9e9"];
+  }
 
-BAŞLA
+  subgraph cluster_network {
+    label="Ağ / Ödeme Ağı";
+    style=rounded;
+    color="#d9ead3";
+    gateway [label="Ödeme Ağı / Ağ Geçidi\n(Visa/Mastercard vb.)"];
+  }
 
-    YAZ "Kartınızı takınız."
-    OKU kart
+  subgraph cluster_bank {
+    label="Banka / Arka Uç";
+    style=rounded;
+    color="#fce5cd";
+    auth_server [label="Yetkilendirme Sunucusu\n(Banka)"];
+    fraud_check [label="Dolandırıcılık Kontrolleri\n(limitler, siyah liste)"];
+    account_db [label="Hesap ve Bakiye Veritabanı"];
+    txn_log [label="İşlem Kayıtları (Log)"];
+  }
 
-    YAZ "PIN kodunuzu giriniz:"
-    OKU girilenPIN
+  /* Akış */
+  card_insertion -> read_card -> pin_entry -> request_build -> gateway;
+  gateway -> auth_server;
+  auth_server -> fraud_check;
+  fraud_check -> account_db;
+  account_db -> auth_server [label="Bakiye & Durum"];
+  auth_server -> gateway [label="Yetki: ONAY / RED"];
 
-    // Kimlik doğrulama
-    dogruPIN ← HesapSistemiPINGetir(kart)
+  /* Onay akışı */
+  gateway -> dispense [label="ONAY", color="#2e7d32"];
+  dispense -> sensors -> receipt -> eject_card -> txn_log;
+  txn_log -> auth_server [style=dashed];
 
-    EĞER girilenPIN ≠ dogruPIN İSE
-        YAZ "Hatalı PIN. Lütfen tekrar deneyiniz."
-        SON
-    DEĞİLSE
-        hesap ← HesapBilgileriniGetir(kart)
-        bakiye ← hesap.bakiye
-        gunlukLimit ← hesap.gunlukLimit
-        gunlukCekilen ← hesap.gunlukCekilen
-        atmNakit ← ATMNakitMiktariGetir()
+  /* Red / Hata akışı */
+  gateway -> atm_error [label="RED / HATA", color="#c62828"];
+  atm_error -> eject_card;
 
-        YAZ "Çekmek istediğiniz miktarı giriniz:"
-        OKU miktar
+  /* Zaman aşımı / mekanik hata */
+  sensors -> atm_error [label="Sıkışma / Sayma Hatası", color="#c62828"];
 
-        // Geçerli miktar mı?
-        EĞER miktar ≤ 0 İSE
-            YAZ "Geçersiz miktar!"
-            SON
-        BİTİR_EĞER
+  /* Geri bildirim / kullanıcıya gösterim */
+  receipt -> txn_log [style=dotted];
+  auth_server -> txn_log [style=dotted];
 
-        // Günlük limit kontrolü
-        EĞER gunlukCekilen + miktar > gunlukLimit İSE
-            YAZ "Günlük çekim limitiniz aşıldı!"
-            SON
-        BİTİR_EĞER
+  /* Görsel düzenlemeler */
+  { rank=same; gateway; request_build; }
+  { rank=same; dispense; auth_server; }
 
-        // Hesap bakiyesi yeterli mi?
-        EĞER miktar > bakiye İSE
-            YAZ "Yetersiz bakiye!"
-            SON
-        BİTİR_EĞER
+  /* Ek açıklama düğümü (opsiyonel) */
+  notes [shape=note label="Güvenlik: PIN gizlenmeli, Skimmer kontrolleri,\nTLS/şifreleme, EMV çip koruması" fillcolor="#fff2cc"];
+  notes -> card_insertion [style=dashed];
+}
 
-        // ATM nakdi yeterli mi?
-        EĞER miktar > atmNakit İSE
-            YAZ "ATM’de yeterli nakit yok!"
-            SON
-        BİTİR_EĞER
-
-        // Kullanıcı onayı
-        YAZ "Bu işlem için onay veriyor musunuz? (E/H)"
-        OKU cevap
-
-        EĞER cevap = "H" İSE
-            YAZ "İşlem iptal edildi."
-            SON
-        BİTİR_EĞER
-
-        // Para çekme işlemi
-        bakiye ← bakiye - miktar
-        gunlukCekilen ← gunlukCekilen + miktar
-        atmNakit ← atmNakit - miktar
-
-        HesapBilgileriniGuncelle(kart, bakiye, gunlukCekilen)
-        ATMNakitGuncelle(atmNakit)
-
-        YAZ miktar, " TL başarıyla çekildi."
-        YAZ "Kalan bakiyeniz: ", bakiye, " TL"
-
-        YAZ "Makbuz ister misiniz? (E/H)"
-        OKU makbuzCevap
-        EĞER makbuzCevap = "E" İSE
-            MakbuzYazdir(kart, miktar, bakiye)
-        BİTİR_EĞER
-
-        YAZ "İşlem tamamlandı. Kartınızı almayı unutmayınız 💙"
-
-    BİTİR_EĞER
-
-BİTİR
