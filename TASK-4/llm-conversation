@@ -1,0 +1,94 @@
+Üniversite Ders Kayıt pseudocode
+Başla
+
+Öğrenci giriş yap
+Eğer giriş başarılı ise
+    Öğrenci bilgilerini göster
+    Mevcut ders listesini getir
+    Maksimum kredi limitini belirle
+    Toplam kayıtlı kredi = 0
+
+    Döngü: Ders seçmek isteyene kadar
+        Ders seç
+        Eğer ders kontenjanı dolu ise
+            "Ders dolu, başka ders seçiniz" mesajı göster
+        Yoksa eğer ders zaman çakışması varsa
+            "Zaman çakışması, başka ders seçiniz" mesajı göster
+        Yoksa eğer dersin ön koşulu alınmamış ise
+            "Ön koşul dersler alınmamış, başka ders seçiniz" mesajı göster
+        Yoksa eğer ders eklendiğinde maksimum kredi aşılacaksa
+            "Kredi limiti aşılacak, başka ders seçiniz" mesajı göster
+        Yoksa
+            Dersi kaydet
+            Toplam kayıtlı kredi += ders kredisi
+            "Ders başarıyla eklendi" mesajı göster
+        Bitir
+        
+    Kullanıcı kayıt işlemini bitirmek isterse
+        Ders kayıtlarını onayla
+        Dersleri ve toplam krediyi göster
+        "Kayıt işlemi tamamlandı" mesajı göster
+
+Aksi takdirde
+    "Giriş başarısız" mesajı göster
+
+Bitir
+
+dot ile yaz
+digraph DersKayit {
+    rankdir=TB;
+    node [shape=box, style=rounded, fontname="Arial"];
+
+    Basla [label="Başla", shape=ellipse];
+    Giris [label="Öğrenci giriş yap"];
+    GirisBasarili [label="Giriş başarılı mı?", shape=diamond];
+    BilgileriGoster [label="Öğrenci bilgilerini göster"];
+    DersListesi [label="Mevcut ders listesini getir"];
+    KrediLimit [label="Maksimum kredi limitini belirle"];
+    ToplamKredi [label="Toplam kayıtlı kredi = 0"];
+
+    DersSec [label="Ders seç"];
+    KontenjanDolu [label="Ders kontenjanı dolu mu?", shape=diamond];
+    ZamanCakis [label="Zaman çakışması var mı?", shape=diamond];
+    OnKosul [label="Ön koşul dersler alındı mı?", shape=diamond];
+    KrediAsim [label="Maks kredi aşılıyor mu?", shape=diamond];
+
+    DersEkle [label="Dersi kaydet ve kredi güncelle"];
+    BasariMesaj [label="Ders başarıyla eklendi"];
+    KayitBitir [label="Kayıt işlemini bitir"];
+    DersOnay [label="Ders kayıtlarını onayla ve göster"];
+    GirisBasarisiz [label="Giriş başarısız", shape=ellipse];
+    Bitir [label="Bitir", shape=ellipse];
+
+    // Akış bağlantıları
+    Basla -> Giris;
+    Giris -> GirisBasarili;
+    GirisBasarili -> BilgileriGoster [label="Evet"];
+    GirisBasarili -> GirisBasarisiz [label="Hayır"];
+    BilgileriGoster -> DersListesi;
+    DersListesi -> KrediLimit;
+    KrediLimit -> ToplamKredi;
+    ToplamKredi -> DersSec;
+
+    DersSec -> KontenjanDolu;
+    KontenjanDolu -> DersSec [label="Evet", style=dashed];
+    KontenjanDolu -> ZamanCakis [label="Hayır"];
+
+    ZamanCakis -> DersSec [label="Evet", style=dashed];
+    ZamanCakis -> OnKosul [label="Hayır"];
+
+    OnKosul -> DersSec [label="Hayır", style=dashed];
+    OnKosul -> KrediAsim [label="Evet"];
+
+    KrediAsim -> DersSec [label="Evet", style=dashed];
+    KrediAsim -> DersEkle [label="Hayır"];
+
+    DersEkle -> BasariMesaj;
+    BasariMesaj -> DersSec;
+
+    DersSec -> KayitBitir [label="Kayıt bitir seçildi"];
+    KayitBitir -> DersOnay;
+    DersOnay -> Bitir;
+
+    GirisBasarisiz -> Bitir;
+}
