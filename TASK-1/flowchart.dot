@@ -1,0 +1,87 @@
+ALGORİTMA ATM_PARA_CEKME
+
+DEĞİŞKENLER:
+    kart, girilenPIN, hesap, miktar : TAMSAYI
+    bakiye, gunlukLimit, gunlukCekilen, atmNakit : TAMSAYI
+    islemDurumu : METİN
+    dogruPIN : TAMSAYI
+
+BAŞLA
+
+    YAZ "Kartınızı takınız."
+    OKU kart
+
+    YAZ "PIN kodunuzu giriniz:"
+    OKU girilenPIN
+
+    // Kimlik doğrulama
+    dogruPIN ← HesapSistemiPINGetir(kart)
+
+    EĞER girilenPIN ≠ dogruPIN İSE
+        YAZ "Hatalı PIN. Lütfen tekrar deneyiniz."
+        SON
+    DEĞİLSE
+        hesap ← HesapBilgileriniGetir(kart)
+        bakiye ← hesap.bakiye
+        gunlukLimit ← hesap.gunlukLimit
+        gunlukCekilen ← hesap.gunlukCekilen
+        atmNakit ← ATMNakitMiktariGetir()
+
+        YAZ "Çekmek istediğiniz miktarı giriniz:"
+        OKU miktar
+
+        // Geçerli miktar mı?
+        EĞER miktar ≤ 0 İSE
+            YAZ "Geçersiz miktar!"
+            SON
+        BİTİR_EĞER
+
+        // Günlük limit kontrolü
+        EĞER gunlukCekilen + miktar > gunlukLimit İSE
+            YAZ "Günlük çekim limitiniz aşıldı!"
+            SON
+        BİTİR_EĞER
+
+        // Hesap bakiyesi yeterli mi?
+        EĞER miktar > bakiye İSE
+            YAZ "Yetersiz bakiye!"
+            SON
+        BİTİR_EĞER
+
+        // ATM nakdi yeterli mi?
+        EĞER miktar > atmNakit İSE
+            YAZ "ATM’de yeterli nakit yok!"
+            SON
+        BİTİR_EĞER
+
+        // Kullanıcı onayı
+        YAZ "Bu işlem için onay veriyor musunuz? (E/H)"
+        OKU cevap
+
+        EĞER cevap = "H" İSE
+            YAZ "İşlem iptal edildi."
+            SON
+        BİTİR_EĞER
+
+        // Para çekme işlemi
+        bakiye ← bakiye - miktar
+        gunlukCekilen ← gunlukCekilen + miktar
+        atmNakit ← atmNakit - miktar
+
+        HesapBilgileriniGuncelle(kart, bakiye, gunlukCekilen)
+        ATMNakitGuncelle(atmNakit)
+
+        YAZ miktar, " TL başarıyla çekildi."
+        YAZ "Kalan bakiyeniz: ", bakiye, " TL"
+
+        YAZ "Makbuz ister misiniz? (E/H)"
+        OKU makbuzCevap
+        EĞER makbuzCevap = "E" İSE
+            MakbuzYazdir(kart, miktar, bakiye)
+        BİTİR_EĞER
+
+        YAZ "İşlem tamamlandı. Kartınızı almayı unutmayınız 💙"
+
+    BİTİR_EĞER
+
+BİTİR
