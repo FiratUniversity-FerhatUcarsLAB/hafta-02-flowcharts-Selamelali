@@ -1,0 +1,52 @@
+digraph OnlineCart {
+  rankdir=LR;
+  splines=true;
+  node [fontname="Helvetica", fontsize=11];
+
+  /* --- Veri Yapıları (Record style) --- */
+  node [shape=record];
+  Product [label="{Product| id: String\l name: String\l price: Decimal\l stock: Integer\l weight: Decimal\l}"];
+  CartItem [label="{CartItem| product: Product\l quantity: Integer\l}"];
+  Cart [label="{Cart| items: List<CartItem>\l coupon: Coupon | null\l shippingAddress: Address | null\l}"];
+  Coupon [label="{Coupon| code: String\l type: percent|fixed\l value: Decimal\l minSubtotal: Decimal\l expiresAt: Date\l}"];
+  Address [label="{Address| name: String\l street: String\l city: String\l postalCode: String\l country: String\l}"];
+
+  /* ilişkiler (veri yapıları arası) */
+  Product -> CartItem [label=" referenced by", arrowhead=none, style=dashed];
+  CartItem -> Cart [label=" element of", arrowhead=open, style=dashed];
+  Coupon -> Cart [label=" optional", arrowhead=open, style=dashed];
+  Address -> Cart [label=" optional", arrowhead=open, style=dashed];
+
+  /* --- İşlem Akışı (flow) --- */
+  subgraph cluster_flow {
+    label="İşlem Akışı (Operations)";
+    style=rounded;
+    color="#d0cfe8";
+    node [shape=box, style=rounded];
+
+    start [label="Start\n(user session)"];
+    add [label="addToCart(cart, product, quantity)\n- stok kontrol\n- var ise quantity++\n- yoksa yeni CartItem ekle"];
+    remove [label="removeFromCart(cart, productId)\n- öğeyi çıkar"];
+    update [label="updateQuantity(cart, productId, newQuantity)\n- yeni adet <=0 ise remove\n- stok kontrolü\n- güncelle"];
+    clear [label="clearCart(cart)\n- items = [] , coupon=null, address=null"];
+    summary [label="getCartSummary(cart)\n- subtotal\n- discount (coupon)\n- tax\n- shipping\n- total"];
+    checkout [label="checkout(cart, paymentInfo)\n- empty kontrol\n- stok tekrar kontrolü\n- processPayment()\n- stok azalt\n- createOrder\n- clearCart"];
+    error [label="Hata Mesajı", shape=note];
+    ok [label="Başarılı Sonuç\n(orderId / success)", shape=oval];
+
+    /* flow edges */
+    start -> add;
+    add -> summary;
+    start -> remove;
+    start -> update;
+    start -> clear;
+    summary -> checkout;
+    checkout -> error [label="payment fail / stok yetersiz", color="#d9534f"];
+    checkout -> ok [label="payment success", color="#5cb85c"];
+    add -> error [label="stok yetersiz", style=dotted];
+    update -> error [label="stok yetersiz", style=dotted];
+  }
+
+  /* görsellik (cluster position) */
+  { rank = same; Product; CartItem; Cart; Coupon; Address; }
+}
