@@ -1,0 +1,216 @@
+ATM Para Çekme Sistemi pseudocode ıle yaz
+// Veri yapıları
+Account:
+  id
+  pin
+  balance         // bakiye (para birimi)
+  dailyWithdrawn  // bugün çekilmiş toplam
+  dailyLimit      // günlük çekim limiti
+  status          // "active", "blocked", vb.
+
+ATM:
+  cashInventory   // {denomination: count, ...} örn {200:10,100:20,50:30,20:50,10:100}
+  totalCash() => sum(denomination * count for each)
+  status          // "online", "offline", "maintenance"
+
+// Kayıt/log
+TransactionLog.append(entry)
+
+// Yardımcı fonksiyonlar
+function authenticate(card, enteredPIN):
+  account = getAccountFromCard(card)
+  if account == null: return (false, "Hesap bulunamadı")
+  if account.status != "active": return (false, "Hesap bloklu")
+  if enteredPIN != account.pin:
+    account.failedAttempts += 1
+    if account.failedAttempts >= 3:
+      account.status = "blocked"
+      return (false, "PIN yanlış. Hesap bloklandı.")
+    return (false, "PIN yanlış.")
+  account.failedAttempts = 0
+  return (true, account)
+
+function checkDailyLimit(account, amount):
+  if amount + account.dailyWithdrawn > account.dailyLimit:
+    return (false, "Günlük limit aşılıyor")
+  return (true, "")
+
+function checkBalance(account, amount):
+  if amount > account.balance:
+    return (false, "Yetersiz hesap bakiyesi")
+  return (true, "")
+
+function checkATMCash(atm, amount):
+  if amount > atm.totalCash(): return (false, "ATM'de yeterli nakit yok")
+  // Ayrıca kullanılabilir banknot kombinasyonunu kontrol et
+  combo = calculateDenominationCombination(atm.cashInventory, amount)
+  if combo == null: return (false, "Uygun banknot kombinasyonu yok")
+  return (true, combo)
+
+function calculateDenominationCombination(inventory, amount):
+  // Basit greedy yaklaşım (büyük banknottan başla). Eğer greedy başarısız olursa
+  // daha gelişmiş kombinasyon araması (backtracking) uygulanabilir.
+  denominations = sorted(keys(inventory), descending=True)
+  remainder = amount
+  use = {den:0 for den in denominations}
+  for den in denominations:
+    maxCount = min(inventory[den], floor(remainder / den))
+    use[den] = maxCount
+    remainder -= den * maxCount
+  if remainder == 0: return use
+  // Greedy başarısız ise backtracking/DP ile kombinasyon bul
+  return findCombinationWithBacktracking(inventory, denominations, amount)
+
+function dispenseCash(atm, combo):
+  for den, count in combo.items():
+    atm.cashInventory[den] -= count
+  // Fiziksel donanım çağrısı: cashDispenser.dispense(combo)
+  return true
+
+function updateAccountAfterWithdrawal(account, amount):
+  account.balance -= amount
+  account.dailyWithdrawn += amount
+  // veritabanına kaydet
+
+function logTransaction(account, atm, amount, status, message):
+  TransactionLog.append({time: now(), accountId: account.id, atmId: atm.id, amount, status, message})
+
+
+// Ana işlem akışı
+function main(card, enteredPIN):
+  if ATM.status != "online": return error("ATM hizmet dışı")
+  authResult = authenticate(card, enteredPIN)
+  if not authResult[0]:
+    logTransaction(null, ATM, 0, "fail", authResult[1])
+    return error(authResult[1])
+  account = authResult[1]
+
+  // Kullanıcıdan işlem seçimi (burada sadece para çekme)
+  selectedOperation = "withdraw"
+  if selectedOperation == "withdraw":
+    amount = getUserEnteredAmount()    // örn 100, 200, ... (sağlanan seçenekler)
+    if amount <= 0: return error("Geçersiz miktar")
+
+    ok, msg = checkDailyLimit(account, amount)
+    if not ok:
+      logTransaction(account, ATM, amount, "fail", msg)
+      return error(msg)
+
+    ok, msg = checkBalance(account, amount)
+    if not ok:
+      logTransaction(account, ATM, amount, "fail", msg)
+      return error(msg)
+
+    ok, comboOrMsg = checkATMCash(ATM, amount)
+    if not ok:
+      logTransaction(account, ATM, amount, "fail", comboOrMsg)
+      return error(comboOrMsg)
+
+    // Onay iste
+    if not getUserConfirmation(amount): 
+      logTransaction(account, ATM, amount, "cancel", "Kullanıcı iptal etti")
+      return cancel("İşlem iptal edildi")
+
+    // Nakit ver
+    dispenseSuccess = dispenseCash(ATM, comboOrMsg)
+    if not dispenseSuccess:
+      logTransaction(account, ATM, amount, "fail", "Nakit dağıtım hatası")
+      // gerektiğinde geri alma/rollback mekanizması
+      return error("Nakit dağıtım hatası")
+
+    // Hesabı güncelle
+    updateAccountAfterWithdrawal(account, amount)
+    logTransaction(account, ATM, amount, "success", "Çekim başarılı")
+
+    // Makbuz/verme bildirimi
+    if userWantsReceipt(): printReceipt(account, amount, comboOrMsg)
+
+    return success("Para çekme işlemi başarılı")
+
+// Backtracking kombinasyon arama (basit versiyon)
+function findCombinationWithBacktracking(inventory, denominations, target):
+  result = {}
+  function backtrack(index, remainder, currentUse):
+    if remainder == 0: return currentUse.copy()
+    if index >= len(denominations): return null
+    den = denominations[index]
+    maxCount = min(inventory[den], floor(remainder / den))
+    for c in range(maxCount, -1, -1):
+      currentUse[den] = c
+      res = backtrack(index+1, remainder - c*den, currentUse)
+      if res != null: return res
+    currentUse[den] = 0
+    return null
+  return backtrack(0, target, {den:0 for den in denominations})
+
+dote diliyle yaz
+digraph ATM_ParaCekme {
+  rankdir=LR;
+  graph [fontsize=12 labelloc="t" label="ATM - Para Çekme Sistemi (Akış Diyagramı)"];
+  node [shape=box style="rounded,filled" fillcolor="#FFFFFF" fontname="Helvetica"];
+
+  /* Kümeler (clusters) */
+  subgraph cluster_atm {
+    label="ATM Cihazı";
+    style=rounded;
+    color="#cfe2f3";
+    card_insertion [label="Kart Tak / Temassız OKUT"];
+    read_card [label="Kart Bilgilerini Oku\n(Çip/Bant)"];
+    pin_entry [label="PIN Girişi\n(PIN şifrelenir)"];
+    request_build [label="İstek Hazırla\n(İşlem türü,tutar)"];
+    dispense [label="Nakit Hazırla ve Ver"];
+    receipt [label="Makbuz Bas / Bildirim"];
+    sensors [label="Sensör Kontrolleri\n(sıkışma,adet)"];
+    eject_card [label="Kartı Ver / İşlemi Bitir"];
+    atm_error [label="Hata / İptal", shape=ellipse, fillcolor="#fde9e9"];
+  }
+
+  subgraph cluster_network {
+    label="Ağ / Ödeme Ağı";
+    style=rounded;
+    color="#d9ead3";
+    gateway [label="Ödeme Ağı / Ağ Geçidi\n(Visa/Mastercard vb.)"];
+  }
+
+  subgraph cluster_bank {
+    label="Banka / Arka Uç";
+    style=rounded;
+    color="#fce5cd";
+    auth_server [label="Yetkilendirme Sunucusu\n(Banka)"];
+    fraud_check [label="Dolandırıcılık Kontrolleri\n(limitler, siyah liste)"];
+    account_db [label="Hesap ve Bakiye Veritabanı"];
+    txn_log [label="İşlem Kayıtları (Log)"];
+  }
+
+  /* Akış */
+  card_insertion -> read_card -> pin_entry -> request_build -> gateway;
+  gateway -> auth_server;
+  auth_server -> fraud_check;
+  fraud_check -> account_db;
+  account_db -> auth_server [label="Bakiye & Durum"];
+  auth_server -> gateway [label="Yetki: ONAY / RED"];
+
+  /* Onay akışı */
+  gateway -> dispense [label="ONAY", color="#2e7d32"];
+  dispense -> sensors -> receipt -> eject_card -> txn_log;
+  txn_log -> auth_server [style=dashed];
+
+  /* Red / Hata akışı */
+  gateway -> atm_error [label="RED / HATA", color="#c62828"];
+  atm_error -> eject_card;
+
+  /* Zaman aşımı / mekanik hata */
+  sensors -> atm_error [label="Sıkışma / Sayma Hatası", color="#c62828"];
+
+  /* Geri bildirim / kullanıcıya gösterim */
+  receipt -> txn_log [style=dotted];
+  auth_server -> txn_log [style=dotted];
+
+  /* Görsel düzenlemeler */
+  { rank=same; gateway; request_build; }
+  { rank=same; dispense; auth_server; }
+
+  /* Ek açıklama düğümü (opsiyonel) */
+  notes [shape=note label="Güvenlik: PIN gizlenmeli, Skimmer kontrolleri,\nTLS/şifreleme, EMV çip koruması" fillcolor="#fff2cc"];
+  notes -> card_insertion [style=dashed];
+}
