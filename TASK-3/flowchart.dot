@@ -1,0 +1,37 @@
+digraph HastaneRandevuSistemi {
+    rankdir=TB;
+    node [shape=box, style=rounded, color=lightblue, fontname="Arial"];
+
+    Basla [label="Başla"];
+    Menu [label="Ana Menü\n1. Hasta Ekle\n2. Randevu Al\n3. Randevuları Görüntüle\n4. Çıkış"];
+    HastaEkle [label="Hasta Ekle"];
+    RandevuAl [label="Randevu Al"];
+    RandevulariGor [label="Randevuları Görüntüle"];
+    Cikis [label="Çıkış", shape=ellipse, color=red];
+
+    HastaBulundu [label="Hasta Bulundu?"];
+    RandevuKayit [label="Randevu Kaydet"];
+    RandevuGoster [label="Randevuları Göster"];
+    Hata [label="Hata Mesajı"];
+
+    // Akış
+    Basla -> Menu;
+    Menu -> HastaEkle [label="1"];
+    Menu -> RandevuAl [label="2"];
+    Menu -> RandevulariGor [label="3"];
+    Menu -> Cikis [label="4"];
+
+    // Hasta Ekle
+    HastaEkle -> Menu [label="Hasta eklendi"];
+
+    // Randevu Al
+    RandevuAl -> HastaBulundu;
+    HastaBulundu -> RandevuKayit [label="Evet"];
+    HastaBulundu -> Hata [label="Hayır"];
+    RandevuKayit -> Menu [label="Randevu alındı"];
+    Hata -> Menu [label="Geri dön"];
+
+    // Randevuları Görüntüle
+    RandevulariGor -> RandevuGoster [label="Randevu var mı?"];
+    RandevuGoster -> Menu [label="Tamam"];
+}
